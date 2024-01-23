@@ -1,0 +1,41 @@
+/*
+file at 2:36
+*/
+
+#include <SoftwareSerial.h>
+
+SoftwareSerial ArduinoUno_SoftSerial (10,11); //RX, TX
+
+//Global Variable
+char c;
+String dataIn;
+
+void setup() {
+    Serial.begin(19200); //Uno to Serial Monitor
+    
+    ArduinoUno_SoftSerial.begin(9600); //Uno to ESP32
+}
+
+
+
+
+void loop() {
+
+    while (ArduinoUno_SoftSerial.available()) {
+      c = ArduinoUno_SoftSerial.read();
+
+      if(c != '\n') {
+        dataIn += c;
+      } else {
+        break;
+      }
+    }
+
+    if (c == '\n') {
+      Serial.println(dataIn);
+      ArduinoUno_SoftSerial.print ("Uno Says: Sup ESP?\n"); //send to ESP32
+    
+      c = 0;
+      dataIn="";
+    }
+}
