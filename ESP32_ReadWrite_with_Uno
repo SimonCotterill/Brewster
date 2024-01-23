@@ -1,0 +1,50 @@
+/*
+at 4:00
+*/
+
+
+#include <HardwareSerial.h>
+HardwareSerial SerialPort(1); // use UART1
+
+
+//Global Variable
+char c;
+String dataIn;
+
+void setup() {
+  Serial.begin(19200);
+  
+  SerialPort.begin(9600, SERIAL_8N1, 16, 17); //Rx, Tx
+  //Serial2.begin(9600);
+}
+
+void loop() {
+  
+  //Write to Uno
+  SerialPort.print("ESP32 says howdy \n");
+  
+  
+  
+  //Read from Uno
+  while(SerialPort.available()) {
+    c = SerialPort.read();
+    
+    if(c != '\n')
+    {
+      dataIn += c;
+    } else {
+      break;
+    }
+  }
+  
+  if (c=='\n')
+  {
+    Serial.println(dataIn);
+    c = 0;
+    dataIn = "";
+  }
+  
+  Serial.println("test");
+  delay(500);
+  
+}
