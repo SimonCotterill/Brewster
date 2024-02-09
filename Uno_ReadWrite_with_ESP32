@@ -4,22 +4,32 @@ https://www.youtube.com/watch?v=lOh0JYi24RU
 */
 
 #include <SoftwareSerial.h>
+#include <string.h>
 
 //Setting new RX and TX pins 
   //RX receives data
   //TX Sends it out
 SoftwareSerial ArduinoUno_SoftSerial (10,11); //RX, TX
 
+//pin assignment
+int boardSwitch = 5;
+
 //Global Variables
 char c;
 char endOfString = '\n';
 String dataIn;
+String dataOut;
 
 //Initialise the serial to monitor and serial ESP32
 void setup() {
+    //Uno to computer
     Serial.begin(19200); //Uno to Serial Monitor
-    
-    ArduinoUno_SoftSerial.begin(9600); //Uno to ESP32
+
+    //Uno to ESP32
+    ArduinoUno_SoftSerial.begin(9600);
+
+    //Define Pins
+    pinMode(boardSwitch, INPUT);
 }
 
 //
@@ -27,6 +37,14 @@ void loop() {
     
     readData();
 
+    if(digitalRead(boardSwitch) == HIGH){
+      dataOut = "1";
+    } if(digitalRead(boardSwitch) == LOW) {
+      dataOut = "0";
+    } else {
+      dataOut = "bruh";
+    }
+    
     //if the global read character is the end variable, you can write
     if (c == endOfString) {
       writeData();
@@ -50,7 +68,8 @@ void readData() {
 //send information to the esp32, then reset c and dataIn
 void writeData() {
   Serial.println(dataIn);
-      ArduinoUno_SoftSerial.print ("bonjourno\n"); //send to ESP32
+      //send to ESP32
+      ArduinoUno_SoftSerial.print(dataOut + endOfString);
     
       c = 0;
       dataIn="";
