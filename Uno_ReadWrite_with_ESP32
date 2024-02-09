@@ -1,41 +1,57 @@
 /*
-file at 2:36
+from the following video around 2:36
+https://www.youtube.com/watch?v=lOh0JYi24RU
 */
 
 #include <SoftwareSerial.h>
 
+//Setting new RX and TX pins 
+  //RX receives data
+  //TX Sends it out
 SoftwareSerial ArduinoUno_SoftSerial (10,11); //RX, TX
 
-//Global Variable
+//Global Variables
 char c;
+char endOfString = '\n';
 String dataIn;
 
+//Initialise the serial to monitor and serial ESP32
 void setup() {
     Serial.begin(19200); //Uno to Serial Monitor
     
     ArduinoUno_SoftSerial.begin(9600); //Uno to ESP32
 }
 
-
-
-
+//
 void loop() {
+    
+    readData();
 
-    while (ArduinoUno_SoftSerial.available()) {
+    //if the global read character is the end variable, you can write
+    if (c == endOfString) {
+      writeData();
+    }
+}
+
+//you continue reading individual characters as c
+//place them into the string dataIn until the end character is reached, then break
+void readData() {
+  while (ArduinoUno_SoftSerial.available()) {
       c = ArduinoUno_SoftSerial.read();
 
-      if(c != '\n') {
+      if(c != endOfString) {
         dataIn += c;
       } else {
         break;
       }
     }
+}
 
-    if (c == '\n') {
-      Serial.println(dataIn);
-      ArduinoUno_SoftSerial.print ("24\n"); //send to ESP32
+//send information to the esp32, then reset c and dataIn
+void writeData() {
+  Serial.println(dataIn);
+      ArduinoUno_SoftSerial.print ("bonjourno\n"); //send to ESP32
     
       c = 0;
       dataIn="";
-    }
 }
