@@ -85,6 +85,8 @@ void loop() {
   
   //Read from Uno
   readFromUno();
+
+  readingTemp = dataIn.toFloat();
   
   //Write to Uno
   writeToUno();
@@ -208,5 +210,3 @@ void onSetValueTempChange()  {
 void onSendEmailTestChange()  {
   // Add your code here to act upon SendEmailTest change
 }
-
-
