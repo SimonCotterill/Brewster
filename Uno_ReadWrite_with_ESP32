@@ -3,6 +3,28 @@ from the following video around 2:36
 https://www.youtube.com/watch?v=lOh0JYi24RU
 */
 
+
+/*********
+  Rui Santos
+  Complete project details at https://randomnerdtutorials.com  
+  Based on the Dallas Temperature Library example
+*********/
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+// Data wire is conntec to the Arduino digital pin 4
+#define ONE_WIRE_BUS 4
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
+
+
+
+
+
 #include <SoftwareSerial.h>
 #include <string.h>
 
@@ -19,6 +41,7 @@ char c;
 char endOfString = '\n';
 String dataIn;
 String dataOut;
+float temperature;
 
 //Initialise the serial to monitor and serial ESP32
 void setup() {
@@ -32,24 +55,29 @@ void setup() {
     pinMode(boardSwitch, INPUT);
 }
 
-//
+
+
+
 void loop() {
+
+    // Call sensors.requestTemperatures() to issue a global temperature and Requests to all devices on the bus
+    sensors.requestTemperatures(); 
+  
+    temperature = sensors.getTempCByIndex(0);
+    Serial.println(temperature);
     
     readData();
 
-    if(digitalRead(boardSwitch) == HIGH){
-      dataOut = "1";
-    } if(digitalRead(boardSwitch) == LOW) {
-      dataOut = "0";
-    } else {
-      dataOut = "bruh";
-    }
+    dataOut = "teehee";
     
     //if the global read character is the end variable, you can write
     if (c == endOfString) {
       writeData();
     }
 }
+
+
+
 
 //you continue reading individual characters as c
 //place them into the string dataIn until the end character is reached, then break
@@ -65,11 +93,14 @@ void readData() {
     }
 }
 
+
+
+
 //send information to the esp32, then reset c and dataIn
 void writeData() {
   Serial.println(dataIn);
       //send to ESP32
-      ArduinoUno_SoftSerial.print(dataOut + endOfString);
+      ArduinoUno_SoftSerial.print(String(temperature) + endOfString);
     
       c = 0;
       dataIn="";
