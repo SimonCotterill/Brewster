@@ -35,7 +35,7 @@
 #include <DallasTemperature.h>
 
 // Data wire is conntec to the Arduino digital pin 4
-#define ONE_WIRE_BUS 4
+#define ONE_WIRE_BUS 3
 
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
@@ -61,7 +61,8 @@ int Valve5 = 35;
 int Valve6 = 36;
 
 //Sensors
-//  Temperature = 4;
+//  Temperature = 3;
+int PressurePin = 4;
 
 
 
@@ -97,6 +98,8 @@ void setup() {
   pinMode(Valve4, OUTPUT);
   pinMode(Valve5, OUTPUT);
   pinMode(Valve6, OUTPUT);
+
+  pinMode(PressurePin, INPUT);
 }
 
 void loop() {
@@ -106,6 +109,8 @@ void loop() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
+
+
   //Temperature Readings
   sensors.requestTemperatures();
   readingTemp = sensors.getTempCByIndex(0);
@@ -113,9 +118,28 @@ void loop() {
   //Writing to Serial just
   Serial.print("Temp is: ");
   Serial.println(readingTemp);
+
+
   
+  //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
+  int analogPressure = analogRead(PressurePin); //read from sensor
+  float pressureVoltage = analogPressure * (5.0 / 1023.0); //convert to voltage
 
+  //Assume 0.5V = 0 PSI ad 4.5V = 100 PSI
+  //adjust 'baselineVoltage' based on zero pressure readings
 
+  float baselineVoltage = 0.45;
+  Serial.print("baselinevoltage: ");
+  Serial.print(pressureVoltage);
+  Serial.println(" v");
+  float pressure = (pressureVoltage - baselineVoltage) * (100.0 / (4.5 - baselineVoltage));
+
+  Serial.print("Pressure: ");
+  Serial.print(pressure);
+  Serial.println(" psi");
+
+  readingPressure = pressure;
+  
   
   if (valveHopper == true){
     digitalWrite(Hopper, HIGH);
