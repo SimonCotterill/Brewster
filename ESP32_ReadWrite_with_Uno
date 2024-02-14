@@ -14,43 +14,60 @@
   float readingTemp;
   float setValuePres;
   float setValueTemp;
-  bool boardSwitch;
-  bool dashboardLight;
   bool sendEmailTest;
   bool surpassedMaxPres;
   bool surpassedMaxTemp;
+  bool valveHopper;
+  bool valveProduct;
+  bool valveWaste;
 
   Variables which are marked as READ/WRITE in the Cloud Thing will also have functions
   which are called when their values are changed from the Dashboard.
   These functions are generated with the Thing and added at the end of this sketch.
 */
 
-//Libraries and designating port to communicate with Arduino Uno
+//Includes
 #include "thingProperties.h"
-#include <HardwareSerial.h>
-HardwareSerial SerialPort(1); // use UART1
 
-//Global Variable
-char c;
-String dataIn;
-char endOfString = '\n';
+//Temperature Probe items, from
+//Rui Santos, https://randomnerdtutorials.com
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
-//non-intrusive delay
-unsigned long previousMillis = 0;
-const long interval = 1000; //milliseconds
+// Data wire is conntec to the Arduino digital pin 4
+#define ONE_WIRE_BUS 4
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(ONE_WIRE_BUS);
+
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
+
+
+
 
 //pin setup
-int dashboardLightPin = 5;
-int switchPin = 14;
+//ball valves / connect to cloud
+int Hopper = 18;
+int Product = 19;
+int Waste = 20;
+
+//solenoid / just in esp32
+int Valve1 = 21;
+int Valve2 = 26;
+int Valve3 = 33;
+int Valve4 = 34;
+int Valve5 = 35;
+int Valve6 = 36;
+
+//Sensors
+//  Temperature = 4;
+
+
 
 void setup() {
   // Initialize serial with computer and wait for port to open
   Serial.begin(19200);
-  // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
-  delay(1500); 
-  
-  //initialise serial with Arduino Uno
-  SerialPort.begin(9600, SERIAL_8N1, 16, 17); //Rx receives, Tx transmits
 
   // Defined in thingProperties.h
   initProperties();
@@ -67,10 +84,19 @@ void setup() {
  */
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo();
-  
+
+
   // Define Pins
-  pinMode(dashboardLightPin, OUTPUT);
-  pinMode(switchPin, INPUT);
+  pinMode(Hopper, OUTPUT);
+  pinMode(Product, OUTPUT);
+  pinMode(Waste, OUTPUT);
+  
+  pinMode(Valve1, OUTPUT);
+  pinMode(Valve2, OUTPUT);
+  pinMode(Valve3, OUTPUT);
+  pinMode(Valve4, OUTPUT);
+  pinMode(Valve5, OUTPUT);
+  pinMode(Valve6, OUTPUT);
 }
 
 void loop() {
@@ -79,62 +105,51 @@ void loop() {
   //to automatically reconnect if wifi is lost
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
-  
-  //Write to Uno
-  SerialPort.print("ESP32 says howdy \n");
-  
-  //Read from Uno
-  readFromUno();
 
-  readingTemp = dataIn.toFloat();
+  //Temperature Readings
+  sensors.requestTemperatures();
+  readingTemp = sensors.getTempCByIndex(0);
   
-  //Write to Uno
-  writeToUno();
+  //Writing to Serial just
+  Serial.print("Temp is: ");
+  Serial.println(readingTemp);
   
-  Serial.println("test");
-  delay(500);
+
+
   
-  if (dashboardLight == true){
-    digitalWrite(dashboardLightPin, HIGH);
+  if (valveHopper == true){
+    digitalWrite(Hopper, HIGH);
   }
-  if (dashboardLight == false){
-    digitalWrite(dashboardLightPin, LOW);
+  if (valveHopper == false){
+    digitalWrite(Hopper, LOW);
   }
-}
 
 
+  if (valveProduct == true){
+    digitalWrite(Product, HIGH);
+  }
+  if (valveProduct == false){
+    digitalWrite(Product, LOW);
+  }
 
 
-
-
-
-
-
-//you continue reading individual characters as c
-//place them into the string dataIn until the end character is reached, then break
-void readFromUno() {
-  while(SerialPort.available()) {
-    c = SerialPort.read();
-    
-    if(c != '\n')
-    {
-      dataIn += c;
-    } else {
-      break;
-    }
+  if (valveWaste == true){
+    digitalWrite(Waste, HIGH);
+  }
+  if (valveWaste == false){
+    digitalWrite(Waste, LOW);
   }
 }
 
-//send information to the esp32, then reset c and dataIn
-void writeToUno() {
-  if (c=='\n')
-  {
-    Serial.println(dataIn);
-    maxPres = dataIn.toFloat();
-    c = 0;
-    dataIn = "";
-  }
-}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -209,4 +224,62 @@ void onSetValueTempChange()  {
 */
 void onSendEmailTestChange()  {
   // Add your code here to act upon SendEmailTest change
+}
+
+
+
+
+
+
+
+
+
+
+/*
+  Since Hopper is READ_WRITE variable, onHopperChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onHopperChange()  {
+  // Add your code here to act upon Hopper change
+}
+
+
+/*
+  Since ProductValve is READ_WRITE variable, onProductValveChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onProductValveChange()  {
+  // Add your code here to act upon ProductValve change
+}
+
+/*
+  Since HopperValve is READ_WRITE variable, onHopperValveChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onHopperValveChange()  {
+  // Add your code here to act upon HopperValve change
+}
+
+/*
+  Since ValveHopper is READ_WRITE variable, onValveHopperChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onValveHopperChange()  {
+  // Add your code here to act upon ValveHopper change
+}
+
+/*
+  Since ValveProduct is READ_WRITE variable, onValveProductChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onValveProductChange()  {
+  // Add your code here to act upon ValveProduct change
+}
+
+/*
+  Since ValveWaste is READ_WRITE variable, onValveWasteChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onValveWasteChange()  {
+  // Add your code here to act upon ValveWaste change
 }
