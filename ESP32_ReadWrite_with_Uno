@@ -44,6 +44,14 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 
 
+//Pressure Probe items
+//from Ovens Garage: Pressure Sensor - Arduino
+const int PressurePin = 4;
+const int pressureZero = 102.1; //analog reading of pressure transducer at 0psi
+const int pressureMax = 276.48; //analog reading of pressure transducer at 30psi
+const int pressureTransducerMaxPSI = 30;
+float pressureValue = 0;
+
 
 
 //pin setup
@@ -62,7 +70,7 @@ int Valve6 = 36;
 
 //Sensors
 //  Temperature = 3;
-int PressurePin = 4;
+//  PressurePin = 4;
 
 
 
@@ -98,9 +106,8 @@ void setup() {
   pinMode(Valve4, OUTPUT);
   pinMode(Valve5, OUTPUT);
   pinMode(Valve6, OUTPUT);
-
-  pinMode(PressurePin, INPUT);
 }
+
 
 void loop() {
   ArduinoCloud.update();
@@ -120,7 +127,7 @@ void loop() {
   Serial.println(readingTemp);
 
 
-  
+  /*
   //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
   int analogPressure = analogRead(PressurePin); //read from sensor
   float pressureVoltage = analogPressure * (5.0 / 1023.0); //convert to voltage
@@ -139,6 +146,14 @@ void loop() {
   Serial.println(" psi");
 
   readingPressure = pressure;
+  */
+
+  pressureValue = analogRead(PressurePin);
+  pressureValue = ((pressureValue - pressureZero)*pressureTransducerMaxPSI)/(pressureMax - pressureZero);
+  Serial.print(pressureValue, 1);
+  Serial.println("psi");
+
+  readingPressure = pressureValue;
   
   
   if (valveHopper == true){
@@ -162,6 +177,22 @@ void loop() {
   }
   if (valveWaste == false){
     digitalWrite(Waste, LOW);
+  }
+
+
+
+  if (readingTemp > maxTemp){
+    surpassedMaxTemp = true;
+  }
+
+  if (readingPressure > maxPres){
+    surpassedMaxPres = true;
+  }
+
+  if (surpassedMaxTemp == true || surpassedMaxPres == true){
+    systemStatus = false;
+  } else {
+    systemStatus = true;
   }
 }
 
@@ -243,21 +274,12 @@ void onSetValueTempChange()  {
 }
 
 /*
-  Since SendEmailTest is READ_WRITE variable, onSendEmailTestChange() is
+  Since SystemStatus is READ_WRITE variable, onSystemStatusChange() is
   executed every time a new value is received from IoT Cloud.
 */
-void onSendEmailTestChange()  {
-  // Add your code here to act upon SendEmailTest change
+void onSystemStatusChange()  {
+  // Add your code here to act upon SystemStatus change
 }
-
-
-
-
-
-
-
-
-
 
 /*
   Since Hopper is READ_WRITE variable, onHopperChange() is
