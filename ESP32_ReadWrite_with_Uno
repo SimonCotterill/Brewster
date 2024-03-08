@@ -14,9 +14,10 @@
   float readingTemp;
   float setValuePres;
   float setValueTemp;
-  bool sendEmailTest;
+  bool sendEmail;
   bool surpassedMaxPres;
   bool surpassedMaxTemp;
+  bool systemStatus;
   bool valveHopper;
   bool valveProduct;
   bool valveWaste;
@@ -47,9 +48,9 @@ DallasTemperature sensors(&oneWire);
 //Pressure Probe items
 //from Ovens Garage: Pressure Sensor - Arduino
 const int PressurePin = 4;
-const int pressureZero = 102.1; //analog reading of pressure transducer at 0psi
-const int pressureMax = 276.48; //analog reading of pressure transducer at 30psi
-const int pressureTransducerMaxPSI = 30;
+const int pressureZero = 0.5; //analog reading of pressure transducer at 0psi
+const int pressureMax = 4.5; //analog reading of pressure transducer at 150psi
+const int pressureTransducerMaxPSI = 150;
 float pressureValue = 0;
 
 
@@ -71,7 +72,6 @@ int Valve6 = 36;
 //Sensors
 //  Temperature = 3;
 //  PressurePin = 4;
-
 
 
 void setup() {
@@ -116,8 +116,6 @@ void loop() {
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
-
-
   //Temperature Readings
   sensors.requestTemperatures();
   readingTemp = sensors.getTempCByIndex(0);
@@ -149,65 +147,63 @@ void loop() {
   */
 
   pressureValue = analogRead(PressurePin);
-  pressureValue = ((pressureValue - pressureZero)*pressureTransducerMaxPSI)/(pressureMax - pressureZero);
+  pressureValue = (pressureValue - pressureZero) * (pressureTransducerMaxPSI / (pressureMax - pressureZero)); //this is the other program's suggestions
+      //original suggestion: ((pressureValue - pressureZero)*pressureTransducerMaxPSI)/(pressureMax - pressureZero);
   Serial.print(pressureValue, 1);
   Serial.println("psi");
-
   readingPressure = pressureValue;
   
-  
-  if (valveHopper == true){
-    digitalWrite(Hopper, HIGH);
-  }
-  if (valveHopper == false){
-    digitalWrite(Hopper, LOW);
-  }
+  valveControl(valveHopper, Hopper);
+  valveControl(valveProduct, Product);
+  valveControl(valveWaste, Waste);
 
+  surpassedMax(maxTemp, readingTemp);
+  surpassedMax(maxPres, readingPressure);
 
-  if (valveProduct == true){
-    digitalWrite(Product, HIGH);
-  }
-  if (valveProduct == false){
-    digitalWrite(Product, LOW);
-  }
-
-
-  if (valveWaste == true){
-    digitalWrite(Waste, HIGH);
-  }
-  if (valveWaste == false){
-    digitalWrite(Waste, LOW);
-  }
-
-
-
-  if (readingTemp > maxTemp){
-    surpassedMaxTemp = true;
-  }
-
-  if (readingPressure > maxPres){
-    surpassedMaxPres = true;
-  }
-
-  if (surpassedMaxTemp == true || surpassedMaxPres == true){
-    systemStatus = false;
-  } else {
-    systemStatus = true;
-  }
+  systemStatusChecker();
 }
 
 
 
+void surpassedMax(float maxAllowedValue, float value){
+  if (value > maxAllowedValue){
+    if (value == readingPressure){
+      surpassedMaxPres = true;
+    } else if (value == readingTemp){
+      surpassedMaxTemp = true;
+    }
+  } else {
+    if (value == readingPressure){
+      surpassedMaxPres = false;
+    } else if (value == readingTemp){
+      surpassedMaxTemp = false;
+    }
+  }
+}
 
 
+void valveControl(bool openOrClosed, int valvePin){
+  if (openOrClosed == true){
+    digitalWrite(valvePin, HIGH);
+  }
+  if (openOrClosed == false){
+    digitalWrite(valvePin, LOW);
+  }
+}
 
-
-
-
-
-
-
-
+void systemStatusChecker(){
+  if(surpassedMaxPres == true || surpassedMaxTemp == true){
+    systemStatus = false;
+  } else {
+    systemStatus = true;
+  }
+  
+  if (systemStatus = false){
+    sendEmail = true;
+  } else {
+    sendEmail = false;
+  }
+}
 
 /*
   Since BoardSwitch is READ_WRITE variable, onBoardSwitchChange() is
@@ -289,7 +285,6 @@ void onHopperChange()  {
   // Add your code here to act upon Hopper change
 }
 
-
 /*
   Since ProductValve is READ_WRITE variable, onProductValveChange() is
   executed every time a new value is received from IoT Cloud.
@@ -328,4 +323,12 @@ void onValveProductChange()  {
 */
 void onValveWasteChange()  {
   // Add your code here to act upon ValveWaste change
+}
+
+/*
+  Since SendEmail is READ_WRITE variable, onSendEmailChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onSendEmailChange()  {
+  // Add your code here to act upon SendEmail change
 }
