@@ -6,14 +6,26 @@
 
   The following variables are automatically generated and updated when changes are made to the Thing
 
+  String fermentationEnd;
+  String processStage;
+  float coldCrashTime;
+  float diacetylRestTime;
+  float diacetylThreshVal;
   float maxPres;
   float maxTemp;
   float readingDensity;
   float readingPh;
   float readingPressure;
   float readingTemp;
+  float setValueDensity;
   float setValuePres;
   float setValueTemp;
+  float tempColdCrash;
+  float tempDiacetylRest;
+  float tempFermentation;
+  bool processPause;
+  bool processStart;
+  bool processStop;
   bool sendEmail;
   bool surpassedMaxPres;
   bool surpassedMaxTemp;
@@ -27,20 +39,19 @@
   These functions are generated with the Thing and added at the end of this sketch.
 */
 
+
 //Includes
 #include "thingProperties.h"
+
 
 //Temperature Probe items, from
 //Rui Santos, https://randomnerdtutorials.com
 #include <OneWire.h>
 #include <DallasTemperature.h>
-
 // Data wire is conntec to the Arduino digital pin 4
 #define ONE_WIRE_BUS 3
-
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
-
 // Pass our oneWire reference to Dallas Temperature sensor 
 DallasTemperature sensors(&oneWire);
 
@@ -54,21 +65,16 @@ const int pressureTransducerMaxPSI = 150;
 float pressureValue = 0;
 
 
-
 //pin setup
 //ball valves / connect to cloud
 int Hopper = 18;
 int Product = 19;
 int Waste = 20;
-
-//solenoid / just in esp32
+//solenoid
 int Valve1 = 21;
 int Valve2 = 26;
 int Valve3 = 33;
 int Valve4 = 34;
-int Valve5 = 35;
-int Valve6 = 36;
-
 //Sensors
 //  Temperature = 3;
 //  PressurePin = 4;
@@ -83,17 +89,13 @@ void setup() {
 
   // Connect to Arduino IoT Cloud
   ArduinoCloud.begin(ArduinoIoTPreferredConnection);
-  
-  /*
-     The following function allows you to obtain more information
-     related to the state of network and IoT Cloud connection and errors
-     the higher number the more granular information you’ll get.
-     The default is 0 (only errors).
-     Maximum is 4
- */
+
+  //The following allows you to obtain more information
+  //about the state of network and IoT Cloud connection and errors
+  //the higher number the more granular information you’ll get.
+  //The default is 0 (only errors). Maximum is 4
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo();
-
 
   // Define Pins
   pinMode(Hopper, OUTPUT);
@@ -104,27 +106,83 @@ void setup() {
   pinMode(Valve2, OUTPUT);
   pinMode(Valve3, OUTPUT);
   pinMode(Valve4, OUTPUT);
-  pinMode(Valve5, OUTPUT);
-  pinMode(Valve6, OUTPUT);
 }
 
 
 void loop() {
-  ArduinoCloud.update();
+  //Make Valve Check Variables
+  bool hopperCheck;
+  bool wasteCheck;
+  bool productCheck;
+
+  bool solenoidCheck1;
+  bool solenoidCheck2;
+  bool solenoidCheck3;
+  bool solenoidCheck4;
+
+  bool valveOpen;
   
+  //Check the stage
+  checkStage();
+  
+  //Update Arduino Values
+  ArduinoCloud.update();
+
   //to automatically reconnect if wifi is lost
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
 
+  //Controlling Valves and checking if open
+  hopperCheck = valveControl(valveHopper, Hopper);
+  productCheck = valveControl(valveProduct, Product);
+  wasteCheck = valveControl(valveWaste, Waste);
+
+  //Controlling Solenoids and checking if open
+
+  if (hopperCheck || productCheck || wasteCheck){
+    valveOpen = true;
+  } else {
+    valveOpen = false;
+  }
+
   //Temperature Readings
   sensors.requestTemperatures();
-  readingTemp = sensors.getTempCByIndex(0);
-  
-  //Writing to Serial just
-  Serial.print("Temp is: ");
-  Serial.println(readingTemp);
+  if (processPause == false & valveOpen == false){
+    readingTemp = sensors.getTempCByIndex(0);
+  }
+
+  //Pressure Readings
+  if (processPause == false & valveOpen == false){
+      readPressure();
+  }
+
+  //Surpassed Max Safety Values Check
+  surpassedMax(maxTemp, readingTemp);
+  surpassedMax(maxPres, readingPressure);
+
+  //Update system status
+  systemStatusChecker();
+}
 
 
+void surpassedMax(float maxAllowedValue, float value){
+  if (value > maxAllowedValue){
+    if (value == readingPressure){
+      surpassedMaxPres = true;
+    } else if (value == readingTemp){
+      surpassedMaxTemp = true;
+    }
+  } else {
+    if (value == readingPressure){
+      surpassedMaxPres = false;
+    } else if (value == readingTemp){
+      surpassedMaxTemp = false;
+    }
+  }
+}
+
+
+void readPressure(){
   /*
   //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
   int analogPressure = analogRead(PressurePin); //read from sensor
@@ -152,44 +210,24 @@ void loop() {
   Serial.print(pressureValue, 1);
   Serial.println("psi");
   readingPressure = pressureValue;
+}
+
+
+bool valveControl(bool openOrClosed, int valvePin){
+  bool valveOpenCheck;
   
-  valveControl(valveHopper, Hopper);
-  valveControl(valveProduct, Product);
-  valveControl(valveWaste, Waste);
-
-  surpassedMax(maxTemp, readingTemp);
-  surpassedMax(maxPres, readingPressure);
-
-  systemStatusChecker();
-}
-
-
-
-void surpassedMax(float maxAllowedValue, float value){
-  if (value > maxAllowedValue){
-    if (value == readingPressure){
-      surpassedMaxPres = true;
-    } else if (value == readingTemp){
-      surpassedMaxTemp = true;
-    }
-  } else {
-    if (value == readingPressure){
-      surpassedMaxPres = false;
-    } else if (value == readingTemp){
-      surpassedMaxTemp = false;
-    }
-  }
-}
-
-
-void valveControl(bool openOrClosed, int valvePin){
   if (openOrClosed == true){
     digitalWrite(valvePin, HIGH);
+    valveOpenCheck = true;
   }
   if (openOrClosed == false){
     digitalWrite(valvePin, LOW);
+    valveOpenCheck = false;
   }
+
+  return valveOpenCheck;
 }
+
 
 void systemStatusChecker(){
   if(surpassedMaxPres == true || surpassedMaxTemp == true){
@@ -204,6 +242,32 @@ void systemStatusChecker(){
     sendEmail = false;
   }
 }
+
+
+void checkStage(){
+  if (processStage != "fermentation" & processStage != "diacetyl" & processStage != "coldCrash"){
+    processStage = "noBatch";
+    setValueTemp = tempFermentation;
+  }
+  
+  if (processStage == "noBatch" & processStart){
+    processStage = "fermentation";
+    setValueTemp = tempFermentation;
+  } else if (processStage == "fermentation" & readingDensity < (setValueDensity + diacetylThreshVal)){
+    processStage = "diacetyl";
+    setValueTemp = tempDiacetylRest;
+  } else if (processStage == "diacetyl" & fermentationEnd == "untilComplete"){ //include the timer & density is unchanged
+    processStage = "coldCrash";
+    setValueTemp = tempColdCrash;
+  } else if (processStage == "diacetly" & fermentationEnd == "untilSetDensity" & readingDensity < setValueDensity){ //include the timer
+    processStage = "coldCrash";
+    setValueTemp = tempColdCrash;
+  } else if (processStage == "coldCrash" & processStop){ //haven't added timer
+    processStage = "noBatch";
+    setValueTemp = tempFermentation;
+  }
+}
+
 
 /*
   Since BoardSwitch is READ_WRITE variable, onBoardSwitchChange() is
@@ -331,4 +395,100 @@ void onValveWasteChange()  {
 */
 void onSendEmailChange()  {
   // Add your code here to act upon SendEmail change
+}
+
+/*
+  Since TempFermentation is READ_WRITE variable, onTempFermentationChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onTempFermentationChange()  {
+  // Add your code here to act upon TempFermentation change
+}
+
+/*
+  Since TempColdCrash is READ_WRITE variable, onTempColdCrashChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onTempColdCrashChange()  {
+  // Add your code here to act upon TempColdCrash change
+}
+
+/*
+  Since TempDiacetylRest is READ_WRITE variable, onTempDiacetylRestChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onTempDiacetylRestChange()  {
+  // Add your code here to act upon TempDiacetylRest change
+}
+
+/*
+  Since FermentationEnd is READ_WRITE variable, onFermentationEndChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onFermentationEndChange()  {
+  // Add your code here to act upon FermentationEnd change
+}
+
+/*
+  Since SetValueDensity is READ_WRITE variable, onSetValueDensityChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onSetValueDensityChange()  {
+  // Add your code here to act upon SetValueDensity change
+}
+
+/*
+  Since DiacetylRestTime is READ_WRITE variable, onDiacetylRestTimeChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onDiacetylRestTimeChange()  {
+  // Add your code here to act upon DiacetylRestTime change
+}
+
+/*
+  Since DiacetylRestTemp is READ_WRITE variable, onDiacetylRestTempChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onDiacetylRestTempChange()  {
+  // Add your code here to act upon DiacetylRestTemp change
+}
+
+/*
+  Since ColdCrashTime is READ_WRITE variable, onColdCrashTimeChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onColdCrashTimeChange()  {
+  // Add your code here to act upon ColdCrashTime change
+}
+
+/*
+  Since ProcessPause is READ_WRITE variable, onProcessPauseChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onProcessPauseChange()  {
+  // Add your code here to act upon ProcessPause change
+}
+
+/*
+  Since ProcessStart is READ_WRITE variable, onProcessStartChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onProcessStartChange()  {
+  // Add your code here to act upon ProcessStart change
+}
+
+/*
+  Since ProcessStop is READ_WRITE variable, onProcessStopChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onProcessStopChange()  {
+  // Add your code here to act upon ProcessStop change
+}
+
+/*
+  Since DiacetylThreshVal is READ_WRITE variable, onDiacetylThreshValChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onDiacetylThreshValChange()  {
+  // Add your code here to act upon DiacetylThreshVal change
 }
