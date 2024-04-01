@@ -27,12 +27,12 @@ void loop() {
   current_chiller_Millis = millis();  // Get the current time
   current_pump_Millis = millis();
 
-controlPump();
-controlChiller();
+pump_cycle();
+chiller_cycle();
 }
 
 
-void controlChiller() {
+void chiller_cycle() {
   if (chiller_flag == 0) {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
       turn_chiller_on();
@@ -45,7 +45,7 @@ void controlChiller() {
   }
 }
 
-void controlPump() {
+void pump_cycle() {
   if (pump_flag == 0) {
     if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
       turn_pump_on();
