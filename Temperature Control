@@ -3,8 +3,8 @@ const int FAN_PIN = 8;
 const int PUMP_PIN = 9;
 
 unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
-const long off_time = 420000;       // Interval at which to wait before turning back on again (7 mins)
-const long run_time = 1200000;      // Interval at which to wait before turning off (20 mins)
+const long off_time = 420000;       // Interval at which to wait before turning chiller back on again (7 mins)
+const long run_time = 1200000;      // Interval at which to wait before turning chiller off (20 mins)
 
 unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
 
@@ -20,6 +20,7 @@ void setup() {
 
 void loop() {
   unsigned long current_chiller_Millis = millis();  // Get the current time
+  unsigned long current_pump_Millis = millis();
  
 
 }
@@ -43,16 +44,13 @@ if (flag==1){
 
 int turnOn(int flag, long currentMillis, long previousMillis, float OnInterval, float OffInterval){
   if (flag ==0){
-    if (currentMillis -
-}
+    if (currentMillis -previousMillis >= OffInterval){
+    turn_chiller_on();}
 }
   if (flag == 1){
-    if (current_chiller_Millis - previous_chiller_Millis >= run_time) {
-    previous_chiller_Millis = current_chiller_Millis;
-  digitalWrite(COMPR_PIN,HIGH);
-  digitalWrite(FAN_PIN,HIGH);
-  chiller_flag = 1;
-  return chiller_flag;
+   if (currentMillis -previousMillis >= OnInterval){
+  turn_chiller_off();}
+}
 }
 
 int turn_pump_On(void){
