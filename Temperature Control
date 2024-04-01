@@ -1,81 +1,75 @@
-const int COMPR_PIN = 7;
-const int FAN_PIN = 8;
-const int PUMP_PIN = 9;
+const int CHILLER_PIN = 7;
+//const int FAN_PIN = 8;
+const int PUMP_PIN = 8;
 
 unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
-const long off_time = 420000;       // Interval at which to wait before turning chiller back on again (7 mins)
-const long run_time = 1200000;      // Interval at which to wait before turning chiller off (20 mins)
+const long chiller_off_time = 3000;       // Interval at which to wait before turning chiller back on again (7 min = 420000ms)
+const long chiller_on_time = 7000;      // Interval at which to wait before turning chiller off (20 mins = 1 200 000ms)
 
 unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
+const long pump_on_time = 7000; // for intermittent pumping, how long the pump is on
+const long pump_off_time = 3000; // for intermittent pumping, how long the pump is off
 
 int chiller_flag = 0;
 int pump_flag=0; // both things should start off
 
+unsigned long current_chiller_Millis;
+unsigned long current_pump_Millis;
+
 void setup() {
-  pinMode(COMPR_PIN, OUTPUT);
-  pinMode(FAN_PIN, OUTPUT);
+  pinMode(CHILLER_PIN, OUTPUT);
+ // pinMode(FAN_PIN, OUTPUT);
   pinMode(PUMP_PIN, OUTPUT);
   Serial.begin(9600);
 }
 
 void loop() {
-  unsigned long current_chiller_Millis = millis();  // Get the current time
-  unsigned long current_pump_Millis = millis();
- 
+  current_chiller_Millis = millis();  // Get the current time
+  current_pump_Millis = millis();
 
+  if (pump_flag == 0) {
+    if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
+      turn_pump_on();  
+    }                         
+  } 
+  if (pump_flag == 1) {
+    if (current_pump_Millis - previous_pump_Millis >= pump_on_time) {
+      turn_pump_off();
+    }
+  }
+
+  if (chiller_flag == 0) {
+    if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
+      turn_chiller_on();
+    }
+  } 
+  if (chiller_flag == 1) {
+    if (current_chiller_Millis - previous_chiller_Millis >= chiller_on_time) {
+      turn_chiller_off();
+    }
+  }
 }
 
-// function for intermittent pump control
-int run_Pump_inter (long currentMillis, long previousMillis, int flag, float on_interval, float off_interval){
-  if (flag ==0){
-    if (currentMillis - previousMillis >= off_interval){
-    previousMillis=currentMillis;
-    turn_pump_On();}
-} 
-if (flag==1){
-  if (currentMillis - previousMillis >= on_interval){
-  previousMillis=currentMillis;
-  turn_pump_Off(); }
-}
-}
-
-
-// functions for chiller
-
-int turnOn(int flag, long currentMillis, long previousMillis, float OnInterval, float OffInterval){
-  if (flag ==0){
-    if (currentMillis -previousMillis >= OffInterval){
-    turn_chiller_on();}
-}
-  if (flag == 1){
-   if (currentMillis -previousMillis >= OnInterval){
-  turn_chiller_off();}
-}
-}
-
-int turn_pump_On(void){
+void turn_pump_on() {
   digitalWrite(PUMP_PIN, HIGH);
   pump_flag = 1;
-  return pump_flag;
+  previous_pump_Millis = millis();
 }
 
-int turn_pump_off(void){
+void turn_pump_off() {
   digitalWrite(PUMP_PIN, LOW);
-  pump_flag =1;
-  return pump_flag;
+  pump_flag = 0;
+  previous_pump_Millis = millis();
 }
 
-int turn_chiller_on(void){
-  digitalWrite(COMPR_PIN, HIGH);
-  digitalWrite(FAN_PIN, HIGH);
-  chiller_flag=1;
-  return chiller_flag;
+void turn_chiller_on() {
+  digitalWrite(CHILLER_PIN, HIGH);
+  chiller_flag = 1;
+  previous_chiller_Millis = millis();
 }
 
-int turn_chiller_off(void){
-  digitalWrite(COMPR_PIN, LOW);
-  digitalWrite(FAN_PIN, LOW);
-  chiller_flag=0;
-  return chiller_flag;
+void turn_chiller_off() {
+  digitalWrite(CHILLER_PIN, LOW);
+  chiller_flag = 0;
+  previous_chiller_Millis = millis();
 }
-
