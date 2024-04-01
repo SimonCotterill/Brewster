@@ -1,0 +1,64 @@
+const int COMPR_PIN = 7;
+const int FAN_PIN = 8;
+const int PUMP_PIN = 9;
+
+unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
+const long off_time = 420000;       // Interval at which to wait before turning back on again (7 mins)
+const long run_time = 1200000;      // Interval at which to wait before turning off (20 mins)
+
+unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
+
+int chiller_flag = 0;
+int pump_flag=0;
+
+void setup() {
+  pinMode(COMPR_PIN, OUTPUT);
+  pinMode(FAN_PIN, OUTPUT);
+  pinMode(PUMP_PIN, OUTPUT);
+  Serial.begin(9600);
+}
+
+void loop() {
+  unsigned long current_chiller_Millis = millis();  // Get the current time
+  turnOn();
+
+  // Check if it's time to turn off
+  if (flag == 1){
+    if (current_chiller_Millis - previous_chiller_Millis >= run_time) {
+    previous_chiller_Millis = current_chiller_Millis;
+    turnOff();
+    }
+  }
+
+// check if it's time to turn on
+  if (chiller_flag == 0){
+    if (current_chiller_Millis - previous_chiller_Millis >= off_time){
+      turnOn();
+      previous_chiller_Millis = current_chiller_Millis;
+    }
+  }
+}
+
+// functions for pump control
+int runPump(void){
+
+}
+
+int offPump(void){
+}
+
+
+// functions for chiller
+int turnOn(void){
+  digitalWrite(COMPR_PIN,HIGH);
+  digitalWrite(FAN_PIN,HIGH);
+  chiller_flag = 1;
+  return chiller_flag;
+}
+
+int turnOff(void){
+  digitalWrite(COMPR_PIN,LOW);
+  digitalWrite(FAN_PIN,LOW);
+  flag = 0;
+  return flag;
+}
