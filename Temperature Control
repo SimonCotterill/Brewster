@@ -27,25 +27,33 @@ void loop() {
   current_chiller_Millis = millis();  // Get the current time
   current_pump_Millis = millis();
 
-  if (pump_flag == 0) {
-    if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
-      turn_pump_on();  
-    }                         
-  } 
-  if (pump_flag == 1) {
-    if (current_pump_Millis - previous_pump_Millis >= pump_on_time) {
-      turn_pump_off();
-    }
-  }
+controlPump();
+controlChiller();
+}
 
+
+void controlChiller() {
   if (chiller_flag == 0) {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
       turn_chiller_on();
     }
   } 
-  if (chiller_flag == 1) {
+  else {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_on_time) {
       turn_chiller_off();
+    }
+  }
+}
+
+void controlPump() {
+  if (pump_flag == 0) {
+    if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
+      turn_pump_on();
+    }
+  } 
+  else {
+    if (current_pump_Millis - previous_pump_Millis >= pump_on_time) {
+      turn_pump_off();
     }
   }
 }
