@@ -9,7 +9,7 @@ const long run_time = 1200000;      // Interval at which to wait before turning 
 unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
 
 int chiller_flag = 0;
-int pump_flag=0;
+int pump_flag=0; // both things should start off
 
 void setup() {
   pinMode(COMPR_PIN, OUTPUT);
@@ -20,45 +20,64 @@ void setup() {
 
 void loop() {
   unsigned long current_chiller_Millis = millis();  // Get the current time
-  turnOn();
-
-  // Check if it's time to turn off
-  if (flag == 1){
-    if (current_chiller_Millis - previous_chiller_Millis >= run_time) {
-    previous_chiller_Millis = current_chiller_Millis;
-    turnOff();
-    }
-  }
-
-// check if it's time to turn on
-  if (chiller_flag == 0){
-    if (current_chiller_Millis - previous_chiller_Millis >= off_time){
-      turnOn();
-      previous_chiller_Millis = current_chiller_Millis;
-    }
-  }
-}
-
-// functions for pump control
-int runPump(void){
+ 
 
 }
 
-int offPump(void){
+// function for intermittent pump control
+int run_Pump_inter (long currentMillis, long previousMillis, int flag, float on_interval, float off_interval){
+  if (flag ==0){
+    if (currentMillis - previousMillis >= off_interval){
+    previousMillis=currentMillis;
+    turn_pump_On();}
+} 
+if (flag==1){
+  if (currentMillis - previousMillis >= on_interval){
+  previousMillis=currentMillis;
+  turn_pump_Off(); }
+}
 }
 
 
 // functions for chiller
-int turnOn(void){
+
+int turnOn(int flag, long currentMillis, long previousMillis, float OnInterval, float OffInterval){
+  if (flag ==0){
+    if (currentMillis -
+}
+}
+  if (flag == 1){
+    if (current_chiller_Millis - previous_chiller_Millis >= run_time) {
+    previous_chiller_Millis = current_chiller_Millis;
   digitalWrite(COMPR_PIN,HIGH);
   digitalWrite(FAN_PIN,HIGH);
   chiller_flag = 1;
   return chiller_flag;
 }
 
-int turnOff(void){
-  digitalWrite(COMPR_PIN,LOW);
-  digitalWrite(FAN_PIN,LOW);
-  flag = 0;
-  return flag;
+int turn_pump_On(void){
+  digitalWrite(PUMP_PIN, HIGH);
+  pump_flag = 1;
+  return pump_flag;
 }
+
+int turn_pump_off(void){
+  digitalWrite(PUMP_PIN, LOW);
+  pump_flag =1;
+  return pump_flag;
+}
+
+int turn_chiller_on(void){
+  digitalWrite(COMPR_PIN, HIGH);
+  digitalWrite(FAN_PIN, HIGH);
+  chiller_flag=1;
+  return chiller_flag;
+}
+
+int turn_chiller_off(void){
+  digitalWrite(COMPR_PIN, LOW);
+  digitalWrite(FAN_PIN, LOW);
+  chiller_flag=0;
+  return chiller_flag;
+}
+
