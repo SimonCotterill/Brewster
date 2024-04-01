@@ -23,6 +23,7 @@
   float tempColdCrash;
   float tempDiacetylRest;
   float tempFermentation;
+  bool processNextStage;
   bool processPause;
   bool processStart;
   bool processStop;
@@ -61,7 +62,7 @@ DallasTemperature sensors(&oneWire);
 const int PressurePin = 4;
 const int pressureZero = 0.5; //analog reading of pressure transducer at 0psi
 const int pressureMax = 4.5; //analog reading of pressure transducer at 150psi
-const int pressureTransducerMaxPSI = 150;
+const int pressureTransducerMaxPSI = 30;
 float pressureValue = 0;
 
 
@@ -183,33 +184,37 @@ void surpassedMax(float maxAllowedValue, float value){
 
 
 void readPressure(){
-  /*
+  
   //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
   int analogPressure = analogRead(PressurePin); //read from sensor
-  float pressureVoltage = analogPressure * (5.0 / 1023.0); //convert to voltage
+  float pressureVoltage = analogPressure * (4.5 / 1023.0); //convert to voltage
 
-  //Assume 0.5V = 0 PSI ad 4.5V = 100 PSI
+  //Assume 0.5V = 0 PSI ad 4.5V = 300 PSI
   //adjust 'baselineVoltage' based on zero pressure readings
 
-  float baselineVoltage = 0.45;
+  float baselineVoltage = 0.5;
   Serial.print("baselinevoltage: ");
   Serial.print(pressureVoltage);
   Serial.println(" v");
-  float pressure = (pressureVoltage - baselineVoltage) * (100.0 / (4.5 - baselineVoltage));
+  float pressure = (pressureVoltage - baselineVoltage) * (30.0 / (4.5 - baselineVoltage));
 
   Serial.print("Pressure: ");
   Serial.print(pressure);
   Serial.println(" psi");
 
   readingPressure = pressure;
-  */
+  
 
-  pressureValue = analogRead(PressurePin);
+  //pressureValue = analogRead(PressurePin);
+  //Serial.println(pressureValue);
+
+  /*
   pressureValue = (pressureValue - pressureZero) * (pressureTransducerMaxPSI / (pressureMax - pressureZero)); //this is the other program's suggestions
       //original suggestion: ((pressureValue - pressureZero)*pressureTransducerMaxPSI)/(pressureMax - pressureZero);
   Serial.print(pressureValue, 1);
   Serial.println("psi");
   readingPressure = pressureValue;
+  */
 }
 
 
@@ -245,11 +250,13 @@ void systemStatusChecker(){
 
 
 void checkStage(){
+  //Rest stage is "noBatch"
   if (processStage != "fermentation" & processStage != "diacetyl" & processStage != "coldCrash"){
     processStage = "noBatch";
-    setValueTemp = tempFermentation;
+    setValueTemp = tempColdCrash;
   }
-  
+
+  //Logic between stages
   if (processStage == "noBatch" & processStart){
     processStage = "fermentation";
     setValueTemp = tempFermentation;
@@ -262,9 +269,28 @@ void checkStage(){
   } else if (processStage == "diacetly" & fermentationEnd == "untilSetDensity" & readingDensity < setValueDensity){ //include the timer
     processStage = "coldCrash";
     setValueTemp = tempColdCrash;
-  } else if (processStage == "coldCrash" & processStop){ //haven't added timer
+  } else if (processStop){ //haven't added timer
     processStage = "noBatch";
+    setValueTemp = tempColdCrash;
+  }
+
+  //If the "Next Stage" button is pressed, for testing
+  if (processStage == "noBatch" & processNextStage){
+    processStage = "fermentation";
     setValueTemp = tempFermentation;
+    processNextStage = false;
+  } else if (processStage == "fermentation" & processNextStage){
+    processStage = "diacetyl";
+    setValueTemp = tempDiacetylRest;
+    processNextStage = false;
+  } else if (processStage == "diacetyl" & processNextStage){
+    processStage = "coldCrash";
+    setValueTemp = tempColdCrash;
+    processNextStage = false;
+  } else if (processStage == "coldCrash" & processNextStage){
+    processStage = "noBatch";
+    setValueTemp = tempColdCrash;
+    processNextStage = false;
   }
 }
 
@@ -491,4 +517,12 @@ void onProcessStopChange()  {
 */
 void onDiacetylThreshValChange()  {
   // Add your code here to act upon DiacetylThreshVal change
+}
+
+/*
+  Since ProcessNextStage is READ_WRITE variable, onProcessNextStageChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onProcessNextStageChange()  {
+  // Add your code here to act upon ProcessNextStage change
 }
