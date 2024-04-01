@@ -266,7 +266,7 @@ void checkStage(){
   } else if (processStage == "diacetyl" & fermentationEnd == "untilComplete"){ //include the timer & density is unchanged
     processStage = "coldCrash";
     setValueTemp = tempColdCrash;
-  } else if (processStage == "diacetly" & fermentationEnd == "untilSetDensity" & readingDensity < setValueDensity){ //include the timer
+  } else if (processStage == "diacetyl" & fermentationEnd == "untilSetDensity" & readingDensity < setValueDensity){ //include the timer
     processStage = "coldCrash";
     setValueTemp = tempColdCrash;
   } else if (processStop){ //haven't added timer
