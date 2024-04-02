@@ -58,6 +58,7 @@ void coldCrashStageControl(unsigned long currentTime);
 void hopSolenoidOutCheck();
 void hopSolenoidInCheck();
 void timeLeftCheck(unsigned long currentTime);
+void diacetylEndOfFermentation(unsigned long currentTime);
 
 //Temperature Probe items, from
 //Rui Santos, https://randomnerdtutorials.com
@@ -106,13 +107,14 @@ unsigned long prevTime_Density = millis();
 unsigned long diacetylStartTime = 0;
 unsigned long coldCrashStartTime = 0;
 unsigned long hopDropStartTime = 0;
-//
+//Changing interval Times
 unsigned long interval_DiacetylRest;
 unsigned long interval_ColdCrash;
 //Set Time Intervals
 long interval_OneSecond = 1000;
 long interval_TenSecond = 10000;
 
+//Cold Crash and Diacetyl Timing bools (if they are finished and when the timer should start)
 bool coldCrashReady = false;
 bool diacetylReady = false;
 bool changedToDiacetyl = false;
@@ -123,6 +125,15 @@ bool baseSolenoidOut = false;
 bool baseSolenoidIn = false;
 bool hopSolenoidOut = false;
 bool hopSolenoidIn = false;
+
+//values for end of fermentation diacetyl mode
+int densitySlopeCount = 0;
+int slopeSigns[100];
+int positiveSlopeCount;
+float densitySlopeSign;
+float lastDensity;
+bool atLeast100Densities = false;
+bool diacetylFermentationFinished = false;
 
 void setup() {
   // Initialize serial with computer and wait for port to open
@@ -141,11 +152,11 @@ void setup() {
   setDebugMessageLevel(2);
   ArduinoCloud.printDebugInfo();
 
-  // Define Pins
+  // Define Valve Pins with user input
   pinMode(Hopper, OUTPUT);
   pinMode(Product, OUTPUT);
   pinMode(Waste, OUTPUT);
-  
+  //Define Solenoid Valve Pins
   pinMode(baseSolenoidOutPin, OUTPUT);
   pinMode(baseSolenoidInPin, OUTPUT);
   pinMode(hopSolenoidOutPin, OUTPUT);
@@ -156,7 +167,8 @@ void setup() {
 void loop() {
   //ESP32 time since startup
   unsigned long currentTime = millis();
-  //Change Stage Set times
+  
+  //Change Stage Set Interval Times
   if (processStage != "diacetyl"){
     interval_DiacetylRest = diacetylRestTime * 3600000;
   }
@@ -164,17 +176,18 @@ void loop() {
     interval_ColdCrash = coldCrashTime * 3600000;
   }
 
-  //Manual Valve Variables
+  //Declaring Manual Valve Variables
   bool hopperCheck;
   bool wasteCheck;
   bool productCheck;
-  //General Valve Bool
+  
+  //General Valve Bool for if any valves are open
   bool valveOpen;
 
   //Upper and lower bounds around the Set Pressure
   float upperSetPres = setValuePres + 1;
   float lowerSetPres = setValuePres - 1;
-  //Check if they're surpassed
+  //Check if those bounds are surpassed
   bool upperSetPresSurpassed = checkUpperSetPresSurpassed(upperSetPres);
   bool lowerSetPresSurpassed = checkLowerSetPresSurpassed(lowerSetPres);
 
@@ -182,12 +195,15 @@ void loop() {
   setDiacetylStageTimer(currentTime);
   //Set Cold Crash Stage Timer
   setColdCrashStageTimer(currentTime);
-  //Set Fermentation Stage Timer
+  //Set Fermentation Stage Timer               NOT DONE YET
   //setFermentationStageTimer(currentTime);
 
   //Change to done if Cold Crash time is reached
   coldCrashStageControl(currentTime);
+  //Change to done if Diacetyl time is reached
   diacetylStageControl(currentTime);
+  //changed to done if dyacetyl fermentation is reached in end of fermentation mode
+  diacetylEndOfFermentation(currentTime);
   //Check the stage
   checkStage();
   
@@ -207,7 +223,7 @@ void loop() {
   baseSolenoidOutCheck(currentTime, upperSetPresSurpassed);
   baseSolenoidInCheck(currentTime, lowerSetPresSurpassed);
 
-  //Controlling Hop Solenoids and checking if open
+  //Controlling Hop Solenoids and checking if open          NOT DONE
   hopSolenoidOutCheck();
   hopSolenoidInCheck();
 
@@ -217,6 +233,7 @@ void loop() {
   valveControl(hopSolenoidOut, hopSolenoidOutPin);
   valveControl(hopSolenoidOut, hopSolenoidInPin);
 
+  //Checking if any valves are open
   if (hopperCheck || productCheck || wasteCheck || baseSolenoidOut || baseSolenoidIn || hopSolenoidOut || hopSolenoidIn){
     valveOpen = true;
   } else {
@@ -234,20 +251,23 @@ void loop() {
       readPressure();
   }
 
-  //Surpassed Max Safety Values Check
-  surpassedMax(maxTemp, readingTemp);
-  surpassedMax(maxPres, readingPressure);
-
   //check time left
   timeLeftCheck(currentTime);
 
-  //Update system status
+  //Surpassed Max Safety Values Check             MIGHT NOT NEED IN THE END
+    //Meant to notify user if the system is broken, with unreasonable temperature or pressure
+  surpassedMax(maxTemp, readingTemp);
+  surpassedMax(maxPres, readingPressure);
+
+  //Update system status              MIGHT NOT NEED IN THE END
+    ////Meant to notify user if the system is broken, with unreasonable temperature or pressure
   //systemStatusChecker();
 
   Serial.println("");
 }
 
-
+//Checks if any max allowed values were passed
+  //MIGHT NOT NEED IN THE END
 void surpassedMax(float maxAllowedValue, float value){
   if (value > maxAllowedValue){
     if (value == readingPressure){
@@ -264,7 +284,7 @@ void surpassedMax(float maxAllowedValue, float value){
   }
 }
 
-
+//Read the Pressure
 void readPressure(){
   //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
   int analogPressure = analogRead(PressurePin); //read from sensor
@@ -298,7 +318,7 @@ void readPressure(){
   */
 }
 
-
+//Open or closes valves
 bool valveControl(bool openOrClosed, int valvePin){
   bool valveOpenCheck;
   
@@ -316,6 +336,8 @@ bool valveControl(bool openOrClosed, int valvePin){
 
 
 /*
+//MIGHT NOT NEED IN THE END
+//Meant to notify user if the system is broken, with unreasonable temperature or pressure
 void systemStatusChecker(){
   if(surpassedMaxPres == true || surpassedMaxTemp == true){
     systemStatus = false;
@@ -331,45 +353,55 @@ void systemStatusChecker(){
 }
 */
 
-
+//Check the current stage
 void checkStage(){
-  //Rest stage is "noBatch"
+  //The rest stage is "noBatch", so go here if nothing else is working
   if (processStage != "fermentation" & processStage != "diacetyl" & processStage != "coldCrash" & processStage != "done"){
     processStage = "noBatch";
     setValueTemp = tempColdCrash;
   }
 
-  //Logic between stages
+  //Regular Logic between stages
+  //If currently in noBatch and process is started, go to fermentation
   if (processStage == "noBatch" & processStart){
     processStage = "fermentation";
     setValueTemp = tempFermentation;
     Serial.println("switched from noBatch to fermentation after process start");
+  //If in fermentation and density is less than set density + treshold, go to diacetyl
+    //and reset diacetyl check values
   } else if (processStage == "fermentation" & readingDensity < (setValueDensity + diacetylThreshVal)){
     processStage = "diacetyl";
+    diacetylFermentationFinished = false;
     diacetylReady = false;
     setValueTemp = tempDiacetylRest;
     Serial.println("switched from fermentation to diacetyl since density was below value+threshold");
-  } else if (processStage == "diacetyl" & fermentationEnd == "untilComplete" & diacetylReady){ //include the timer & density is unchanged
+  //If in diacetly and untilComplete fermentation stage, wait until fermentation is finished and diacetyl timer ends 
+    //and reset coldCrash check values
+  } else if (processStage == "diacetyl" & fermentationEnd == "untilComplete" & diacetylFermentationFinished == true & diacetylReady){
     processStage = "coldCrash";
     coldCrashReady = false;
     setValueTemp = tempColdCrash;
     Serial.println("switched from diacetyl to cold crash cause time was ready, and set to fermentationEnd");
+  //If in diacetyl and untilSetDensity stage, wait until density is below set density and diacetyl timer ends
+    //and reset coldCrash check values
   } else if (processStage == "diacetyl" & fermentationEnd == "untilSetDensity" & readingDensity < setValueDensity & diacetylReady){ //include the timer
     processStage = "coldCrash";
     coldCrashReady = false;
     setValueTemp = tempColdCrash;
     Serial.println("switched from diacetyl to cold crash cause time was ready and density below set value");
+  //If in coldCrash and coldCrash time has finished, go to done stage
   } else if (processStage == "coldCrash" & coldCrashReady == true){
     processStage = "done";
     setValueTemp = tempColdCrash;
     Serial.println("switched from coldcrash to done since coldcrash was ready");
+  //If processStop is clicked, go to noBatch
   } else if (processStop){
     processStage = "noBatch";
     setValueTemp = tempColdCrash;
     Serial.println("switched from any stage to noBatch cause stop was pressed");
   }
 
-  //If the "Next Stage" button is pressed, for testing
+  //If the "Next Stage" button is pressed, go to next stage and reset any check values
   if (processStage == "noBatch" & processNextStage){
     processStage = "fermentation";
     setValueTemp = tempFermentation;
@@ -377,6 +409,7 @@ void checkStage(){
     Serial.println("switched from batch to fermentation cause nextstage was pressed");
   } else if (processStage == "fermentation" & processNextStage){
     processStage = "diacetyl";
+    diacetylFermentationFinished = false;
     diacetylReady = false;
     setValueTemp = tempDiacetylRest;
     processNextStage = false;
@@ -405,8 +438,7 @@ void checkStage(){
   }
 }
 
-
-//Set Stage Timers
+//Set Diacetyl Stage Timer
 void setDiacetylStageTimer(unsigned long currentTime){
   if (processStage == "diacetyl" & changedToDiacetyl == false){
     diacetylStartTime = currentTime;
@@ -418,7 +450,7 @@ void setDiacetylStageTimer(unsigned long currentTime){
   }
 }
 
-//Set Stage Timer
+//Set Cold Crash Stage Timer
 void setColdCrashStageTimer(unsigned long currentTime){
   if (processStage == "coldCrash" & changedToColdCrash == false){
     coldCrashStartTime = currentTime;
@@ -430,8 +462,9 @@ void setColdCrashStageTimer(unsigned long currentTime){
   }
 }
 
-
-//Pressure base solenoid out check loop
+//baseSolenoidOut check loop
+  //Close after a second
+  //check every 10 seconds if gas needs to be let out
 void baseSolenoidOutCheck(unsigned long currentTime, bool threshold){
   //Check every 1 second if valve is open, then close valve
   if (currentTime - prevTime_BaseSolenoidOutClose > interval_OneSecond){
@@ -452,8 +485,9 @@ void baseSolenoidOutCheck(unsigned long currentTime, bool threshold){
   }
 }
 
-
-//Pressure base solenoid in check loop
+//baseSolenoidIn check loop
+  //close after one second
+  //check every 10 seconds if gas needs to be let in
 void baseSolenoidInCheck(unsigned long currentTime, bool threshold){
   //Check every 1 second if valve is open, then close valve
   if (currentTime - prevTime_BaseSolenoidInClose > interval_OneSecond){
@@ -474,7 +508,7 @@ void baseSolenoidInCheck(unsigned long currentTime, bool threshold){
   }
 }
 
-
+//check if upper pressure bound is surpassed
 bool checkUpperSetPresSurpassed(float upperSetPres){
   if (readingPressure > upperSetPres){
     return true;
@@ -483,7 +517,7 @@ bool checkUpperSetPresSurpassed(float upperSetPres){
   return false;
 }
 
-
+//check if lower pressure bound is surpassed
 bool checkLowerSetPresSurpassed(float lowerSetPres){
   if (readingPressure < lowerSetPres){
     return true;
@@ -492,14 +526,14 @@ bool checkLowerSetPresSurpassed(float lowerSetPres){
   return false;
 }
 
-
+//say cold crash is ready if timer is done
 void coldCrashStageControl(unsigned long currentTime){
   if(currentTime - coldCrashStartTime > interval_ColdCrash){
     coldCrashReady = true;
   }
 }
 
-
+//say daicetyl is ready if timer is done
 void diacetylStageControl(unsigned long currentTime){
   if(currentTime - diacetylStartTime > interval_DiacetylRest){
     diacetylReady = true;
@@ -517,7 +551,7 @@ void hopSolenoidInCheck(){
    hopSolenoidIn = false;
 }
 
-
+//checks the time left for the given timer
 void timeLeftCheck(unsigned long currentTime){  
   if (processStage == "diacetyl"){
     unsigned long elapsedTime = currentTime - diacetylStartTime;
@@ -538,6 +572,66 @@ void timeLeftCheck(unsigned long currentTime){
   Serial.print("time left in milliseconds: ");
   Serial.println(timeLeft);
 }
+
+//diacetylEndOfFermentation mode checker
+  //finds the slope sign between the current and last value every second
+  //adds this to an array
+  //once all 100 spots are filled, reset the count so spots are filled again
+    //and you can now check these slopes
+  //if the diacetyl timer is ready and there are 100 slopes in the array
+    //if over 45 of these slopes are positive, consider the fermenting to have plateaued
+  //then reset all the values
+void diacetylEndOfFermentation(unsigned long currentTime){
+  if (currentTime - prevTime_Density > interval_OneSecond){
+  
+    //find slope
+    densitySlopeSign = readingDensity - lastDensity;
+
+    slopeSigns[densitySlopeCount] = densitySlopeSign;
+  
+    densitySlopeCount++;
+      
+    if (densitySlopeCount > 100){
+      //reset count to 0
+      densitySlopeCount = 0;
+      atLeast100Densities = true; //ENSURE THIS IS RESET
+    }
+
+    if (diacetylReady == true){
+      if (atLeast100Densities == true & processStage == "diacetyl"){
+      //find numbers in array that are positive 
+        //if number is above 45, go next stage
+        for (int i = 0; i < 100; i++){
+          if (slopeSigns[i] > 0) {
+            positiveSlopeCount++;
+          } else {
+            positiveSlopeCount--;
+          }
+        }
+
+        //reset all values for this stage and go to the next stage
+        if (positiveSlopeCount > 45){
+          diacetylFermentationFinished = true;
+          
+          changedToDiacetyl = false;
+          atLeast100Densities = false;
+          densitySlopeCount = 0;
+
+          for (int i = 0; i < 100; i++){
+            slopeSigns[i] = 0;
+          }
+
+          
+        }
+    }
+
+    lastDensity = readingDensity;
+    prevTime_Density = currentTime;
+    }
+    
+  }
+}
+
 
 
 /*
