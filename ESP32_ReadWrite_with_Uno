@@ -181,11 +181,96 @@ void loop() {
   surpassedMax(maxTemp, readingTemp);
   surpassedMax(maxPres, readingPressure);
 
+// stuff to run the chiller
+current_chiller_Millis = millis();  // Get the current time
+current_pump_Millis = millis();
+
+controlChillerSystem();
+
   //Update system status
   systemStatusChecker();
+
+}
+
+// chiller functions
+// function to control the chiller system
+void controlChillerSystem(void){
+  tempDif = readingTemp-setValueTemp;
+  if (tempDif <= 0){
+    turn_pump_off();
+    turn_chiller_off();
+  } else if ( 0 < tempDif && tempDif <= 10){
+    pump_cycle();
+    chiller_cycle();
+  } else if (tempDif >= 10){
+    turn_pump_on();
+    chiller_cycle();
+  }
+}
+
+//function to cycle the compressor and fan, 20 mins ON, 7 mins OFF (better for compressor to not be on cts for a long period of time)
+void chiller_cycle() {
+  if (chiller_flag == 0) {
+    if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
+      turn_chiller_on();
+    }
+  } 
+  else {
+    if (current_chiller_Millis - previous_chiller_Millis >= chiller_on_time) {
+      turn_chiller_off();
+    }
+  }
+}
+
+// pump Proportional control function
+float pump_cycle_length(void){
+  if (tempDif >= 0){
+  pump_on_time = 30000 * tempDif; // add 0.5 min of on time per 1 deg temp change
+  return pump_on_time;
+  }
 }
 
 
+// function to turn the pump on and off according to the ON/OFF times dictated by the proportional control function
+void pump_cycle() {
+  pump_cycle_length();
+  if (pump_flag == 0) {
+    if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
+      turn_pump_on();
+    }
+  } 
+  else {
+    if (current_pump_Millis - previous_pump_Millis >= pump_on_time) {
+      turn_pump_off();
+    }
+  }
+}
+
+void turn_pump_on() {
+  digitalWrite(PUMP_PIN, HIGH);
+  pump_flag = 1;
+  previous_pump_Millis = millis();
+}
+
+void turn_pump_off() {
+  digitalWrite(PUMP_PIN, LOW);
+  pump_flag = 0;
+  previous_pump_Millis = millis();
+}
+
+void turn_chiller_on() {
+  digitalWrite(CHILLER_PIN, HIGH);
+  chiller_flag = 1;
+  previous_chiller_Millis = millis();
+}
+
+void turn_chiller_off() {
+  digitalWrite(CHILLER_PIN, LOW);
+  chiller_flag = 0;
+  previous_chiller_Millis = millis();
+}
+
+//not chiller stuff
 void surpassedMax(float maxAllowedValue, float value){
   if (value > maxAllowedValue){
     if (value == readingPressure){
