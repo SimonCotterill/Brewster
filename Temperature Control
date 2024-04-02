@@ -1,14 +1,17 @@
 const int CHILLER_PIN = 7;
-//const int FAN_PIN = 8;
 const int PUMP_PIN = 8;
+
+float setValueTemp = 0;
+float readingTemp = 0;
+float tempDif = 0;
 
 unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
 const long chiller_off_time = 3000;       // Interval at which to wait before turning chiller back on again (7 min = 420000ms)
 const long chiller_on_time = 7000;      // Interval at which to wait before turning chiller off (20 mins = 1 200 000ms)
 
 unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
-const long pump_on_time = 7000; // for intermittent pumping, how long the pump is on
-const long pump_off_time = 3000; // for intermittent pumping, how long the pump is off
+unsigned long pump_on_time = 7000; // for intermittent pumping, how long the pump is on
+unsigned long pump_off_time = 3000; // for intermittent pumping, how long the pump is off
 
 int chiller_flag = 0;
 int pump_flag=0; // both things should start off
@@ -18,20 +21,33 @@ unsigned long current_pump_Millis;
 
 void setup() {
   pinMode(CHILLER_PIN, OUTPUT);
- // pinMode(FAN_PIN, OUTPUT);
   pinMode(PUMP_PIN, OUTPUT);
-  Serial.begin(9600);
 }
 
 void loop() {
   current_chiller_Millis = millis();  // Get the current time
   current_pump_Millis = millis();
 
-pump_cycle();
-chiller_cycle();
+controlChillerSystem();
 }
 
 
+// function to control the chiller system
+void controlChillerSystem(void){
+  tempDif = readingTemp-setValueTemp;
+  if (tempDif <= 0){
+    turn_pump_off();
+    turn_chiller_off();
+  } else if ( 0 < tempDif && tempDif <= 10){
+    pump_cycle();
+    chiller_cycle();
+  } else if (tempDif >= 10){
+    turn_pump_on();
+    chiller_cycle();
+  }
+}
+
+//function to cycle the compressor and fan, 20 mins ON, 7 mins OFF (better for compressor to not be on cts for a long period of time)
 void chiller_cycle() {
   if (chiller_flag == 0) {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
@@ -45,7 +61,18 @@ void chiller_cycle() {
   }
 }
 
+// pump Proportional control function
+float pump_cycle_length(void){
+  if (tempDif >= 0){
+  pump_on_time = 30000 * tempDif; // add 0.5 min of on time per 1 deg temp change
+  return pump_on_time;
+  }
+}
+
+
+// function to turn the pump on and off according to the ON/OFF times dictated by the proportional control function
 void pump_cycle() {
+  pump_cycle_length();
   if (pump_flag == 0) {
     if (current_pump_Millis - previous_pump_Millis >= pump_off_time) {
       turn_pump_on();
