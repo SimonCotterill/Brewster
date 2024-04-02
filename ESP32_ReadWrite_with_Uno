@@ -44,7 +44,23 @@
 //Includes
 #include "thingProperties.h"
 
-// testinggg
+// chiller and pump declarations
+float tempDif = 0;
+
+unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
+const long chiller_off_time = 3000;       // Interval at which to wait before turning chiller back on again (7 min = 420000ms)
+const long chiller_on_time = 7000;      // Interval at which to wait before turning chiller off (20 mins = 1 200 000ms)
+
+unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
+long pump_on_time = 7000; // for intermittent pumping, how long the pump is on
+long pump_off_time = 3000; // for intermittent pumping, how long the pump is off
+
+int chiller_flag = 0;
+int pump_flag=0; // both things should start off
+
+unsigned long current_chiller_Millis;
+unsigned long current_pump_Millis;
+
 //Temperature Probe items, from
 //Rui Santos, https://randomnerdtutorials.com
 #include <OneWire.h>
@@ -79,6 +95,8 @@ int Valve4 = 34;
 //Sensors
 //  Temperature = 3;
 //  PressurePin = 4;
+const int CHILLER_PIN = 7;
+const int PUMP_PIN = 8;
 
 
 void setup() {
@@ -107,6 +125,8 @@ void setup() {
   pinMode(Valve2, OUTPUT);
   pinMode(Valve3, OUTPUT);
   pinMode(Valve4, OUTPUT);
+  pinMode(CHILLER_PIN, OUTPUT);
+  pinMode(PUMP_PIN, OUTPUT);
 }
 
 
