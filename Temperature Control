@@ -15,6 +15,7 @@ unsigned long pump_off_time = 3000; // for intermittent pumping, how long the pu
 
 int chiller_flag = 0;
 int pump_flag=0; // both things should start off
+bool justTurnedOn = true;
 
 unsigned long current_chiller_Millis;
 unsigned long current_pump_Millis;
@@ -49,6 +50,10 @@ void controlChillerSystem(void){
 
 //function to cycle the compressor and fan, 20 mins ON, 7 mins OFF (better for compressor to not be on cts for a long period of time)
 void chiller_cycle() {
+   if (justTurnedOn == true){
+    turn_chiller_on();
+    justTurnedOn = false;
+  }
   if (chiller_flag == 0) {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
       turn_chiller_on();
