@@ -26,6 +26,7 @@
   float tempFermentation;
   float timeLeft;
   bool autoHopDrop;
+  bool hopperCO2Purge;
   bool processNextStage;
   bool processPause;
   bool processStart;
@@ -59,6 +60,7 @@ bool checkUpperSetPresSurpassed(float upperSetPres);
 bool checkLowerSetPresSurpassed(float lowerSetPres);
 void coldCrashStageControl(unsigned long currentTime);
 void diacetylStageControl(unsigned long currentTime);
+void hopperCO2PurgeControl(unsigned long currentTime);
 void hopperControl(unsigned long currentTime);
 void autoHopDropControl(unsigned long currentTime);
 void timeLeftCheck(unsigned long currentTime);
@@ -90,7 +92,7 @@ float pressureValue = 0;
 //pin setup
 //ball valves / connect to cloud
 int Hopper = 39;
-int Product = 38;
+int Product = 38; 
 int Waste = 37;
 //solenoid
 int baseSolenoidOutPin = 36;
@@ -124,12 +126,19 @@ long interval_OneSecond = 1000;
 int interval_FiveSeconds = 5000;
 int interval_FifteenSeconds = 15000;
 int interval_TenSeconds = 10000;
+int interval_TwentySeconds = 20000;
 
 //Cold Crash and Diacetyl Timing bools (if they are finished and when the timer should start)
 bool coldCrashReady = false;
 bool diacetylReady = false;
 bool changedToDiacetyl = false;
 bool changedToColdCrash = false;
+
+//Hopper Purge
+bool hopperCO2PurgeInProgress = false;
+bool hopPurgeIntermittentWaiting = false;
+int hopPurgeStage = 0;
+unsigned long hopPurgeStageTime = 0;
 
 //Hopper process
 unsigned long hopDropStageTime;
@@ -166,21 +175,24 @@ bool diacetylFermentationFinished = false;
 float tempDif = 0;
 
 unsigned long previous_chiller_Millis = 0;  // Variable to store the last time the compressor was on
-const long chiller_off_time = 3000;       // Interval at which to wait before turning chiller back on again (7 min = 420000ms)
-const long chiller_on_time = 7000;      // Interval at which to wait before turning chiller off (20 mins = 1 200 000ms)
+const long chiller_off_time = 420000;       // Interval at which to wait before turning chiller back on again (7 min = 420000ms)
+const long chiller_on_time = 1200000;      // Interval at which to wait before turning chiller off (20 mins = 1 200 000ms)
 
 unsigned long previous_pump_Millis = 0; // variable to store the last time the pump was on
-long pump_on_time = 7000; // for intermittent pumping, how long the pump is on
-long pump_off_time = 3000; // for intermittent pumping, how long the pump is off
+long pump_on_time = 60000; // for intermittent pumping, how long the pump is on
+long pump_off_time = 60000; // for intermittent pumping, how long the pump is off
 
 int chiller_flag = 0;
 int pump_flag=0; // both things should start off
+bool justTurnedOn = true;
 
 unsigned long current_chiller_Millis;
 unsigned long current_pump_Millis;
 
 const int CHILLER_PIN = 7;
 const int PUMP_PIN = 8;
+
+unsigned long temperatureControlErrorTime;
 
 
 
@@ -262,6 +274,7 @@ void loop() {
   //Controlling Hop Solenoids and checking if open          NOT DONE
   autoHopDropControl(currentTime);
   hopperControl(currentTime);
+  hopperCO2PurgeControl(currentTime);
   
   //Update Arduino Values
   ArduinoCloud.update();
@@ -328,6 +341,8 @@ void loop() {
   current_pump_Millis = millis();
 
   controlChillerSystem();
+
+  temperatureControlErrorPrintings(currentTime); 
 }
 
 
@@ -339,18 +354,25 @@ void controlChillerSystem(void){
   tempDif = readingTemp-setValueTemp;
   if (tempDif <= 0){
     turn_pump_off();
+    Serial.println("Pump is off");
     turn_chiller_off();
   } else if ( 0 < tempDif && tempDif <= 10){
+    Serial.println("Pump on time is " + String(pump_on_time));
     pump_cycle();
     chiller_cycle();
   } else if (tempDif >= 10){
     turn_pump_on();
+    Serial.println("Pump is constant ON");
     chiller_cycle();
   }
 }
 
 //function to cycle the compressor and fan, 20 mins ON, 7 mins OFF (better for compressor to not be on cts for a long period of time)
 void chiller_cycle() {
+  if (justTurnedOn == true){
+    turn_chiller_on();
+    justTurnedOn=false; 
+  }
   if (chiller_flag == 0) {
     if (current_chiller_Millis - previous_chiller_Millis >= chiller_off_time) {
       turn_chiller_on();
@@ -413,6 +435,30 @@ void turn_chiller_off() {
 
 
 
+void temperatureControlErrorPrintings(unsigned long currentTime){
+  if (currentTime - temperatureControlErrorTime > interval_FiveSeconds){
+    Serial.println("temperature control things: ");
+    
+    if (pump_flag == 1){
+      Serial.println("Pump is on");
+    } else {
+      Serial.println("Pump is off");
+    }
+    
+    if (chiller_flag == 1){
+      Serial.println("chiller is on");
+    } else {
+      Serial.println("chiller is off");
+    }
+
+    Serial.println("Temperature Difference is: " + String(tempDif));
+
+    temperatureControlErrorTime = currentTime;
+  }
+}
+
+
+
 
 
 //Checks if any max allowed values were passed
@@ -432,39 +478,17 @@ void surpassedMax(float maxAllowedValue, float value){
     }
   }
 }
-
+//at 0 is 910
+//at 5 is 1800
+//at 10 is 2930
+//at 15 is 4120
+//at 20 is 5200
+//at 25 is 6100
 //Read the Pressure
 void readPressure(){
-  //Pressure Readings - YT Vid: MESURING PRESSURE WITH ARDUINO PRESSURE SENSOR (pressure transducer)
-  int analogPressure = analogRead(PressurePin); //read from sensor
-  float pressureVoltage = analogPressure * (4.5 / 1023.0); //convert to voltage
-
-  //Assume 0.5V = 0 PSI ad 4.5V = 300 PSI
-  //adjust 'baselineVoltage' based on zero pressure readings
-
-  float baselineVoltage = 0.5;
-  Serial.print("baselinevoltage: ");
-  Serial.print(pressureVoltage);
-  Serial.println(" v");
-  float pressure = (pressureVoltage - baselineVoltage) * (30.0 / (4.5 - baselineVoltage));
-
-  Serial.print("Pressure: ");
-  Serial.print(pressure);
-  Serial.println(" psi");
-
-  readingPressure = pressure;
-  
-
-  //pressureValue = analogRead(PressurePin);
-  //Serial.println(pressureValue);
-
-  /*
-  pressureValue = (pressureValue - pressureZero) * (pressureTransducerMaxPSI / (pressureMax - pressureZero)); //this is the other program's suggestions
-      //original suggestion: ((pressureValue - pressureZero)*pressureTransducerMaxPSI)/(pressureMax - pressureZero);
-  Serial.print(pressureValue, 1);
-  Serial.println("psi");
-  readingPressure = pressureValue;
-  */
+  float voltage = analogRead(PressurePin);
+  Serial.print("Pressure voltage read is: " + String(voltage));
+  readingPressure = ((0.004678)*voltage) -3.918;
 }
 
 //Open or closes valves
@@ -691,43 +715,56 @@ void diacetylStageControl(unsigned long currentTime){
   }
 }
 
+void hopperCO2PurgeControl(unsigned long currentTime){
+  if (hopperCO2Purge == true & hopperCO2PurgeInProgress == false & hopperOpenInProgress == false){
+    hopperCO2PurgeInProgress = true;
+    Serial.println("hopper purge process started");
+    Serial.println("hopSolenoids opened");
+  }
+
+  if (hopperCO2PurgeInProgress == true){
+    if (hopPurgeStage == 0){
+      hopSolenoidIn = true;
+      hopSolenoidOut = true;
+      if (hopPurgeIntermittentWaiting == false){
+        hopPurgeStageTime = currentTime;
+        hopPurgeIntermittentWaiting = true;
+      }
+
+      if (currentTime - hopPurgeStageTime > interval_FiveSeconds){
+        hopPurgeStage = 1;
+        hopPurgeIntermittentWaiting = false;
+      }
+    }
+
+    if (hopPurgeStage == 1){
+      hopSolenoidIn = false;
+      hopSolenoidOut = false;
+      if (hopPurgeIntermittentWaiting == false){
+        hopPurgeStageTime = currentTime;
+        hopPurgeIntermittentWaiting = true;
+        Serial.println("hopper purge process: solenoids closed");
+      }
+
+      if (currentTime - hopDropStageTime > interval_TenSeconds){
+        hopPurgeStage = 0;
+        hopPurgeIntermittentWaiting = false;
+        hopperCO2PurgeInProgress = false;
+        Serial.println("hopper purge process: done");
+      }
+    }
+  }
+}
+
 //hopper control in a series of timed stages
 void hopperControl(unsigned long currentTime){  
-  if (valveHopper == true & hopperOpenInProgress == false){
+  if (valveHopper == true & hopperOpenInProgress == false & hopperCO2PurgeInProgress == false){
     hopperOpenInProgress = true;
     Serial.println("hopper control process started");
-    Serial.println("hopSolenoidIn opened");
   }
   
   if (hopperOpenInProgress == true){
     if (hopDropStage == 0){
-      hopSolenoidIn = true;
-      if (hopDropIntermittentWaiting == false){
-        hopDropStageTime = currentTime;
-        hopDropIntermittentWaiting = true;
-      }
-
-      if (currentTime - hopDropStageTime > interval_FiveSeconds){
-        hopDropStage = 1;
-        hopDropIntermittentWaiting = false;
-      }
-    }
-
-    if (hopDropStage == 1){
-      hopSolenoidIn = false;
-      if (hopDropIntermittentWaiting == false){
-        hopDropStageTime = currentTime;
-        hopDropIntermittentWaiting = true;
-        Serial.println("hopper control process: solenoid in closed");
-      }
-
-      if (currentTime - hopDropStageTime > interval_FiveSeconds){
-        hopDropStage = 2;
-        hopDropIntermittentWaiting = false;
-      }
-    }
-
-    if (hopDropStage == 2){
       valveHopperOffline = true;
       if (hopDropIntermittentWaiting == false){
         hopDropStageTime = currentTime;
@@ -735,13 +772,13 @@ void hopperControl(unsigned long currentTime){
         Serial.println("hopper control process: hopper opened");
       }
 
-      if (currentTime - hopDropStageTime > interval_FifteenSeconds){
-        hopDropStage = 3;
+      if (currentTime - hopDropStageTime > interval_TwentySeconds){
+        hopDropStage = 1;
         hopDropIntermittentWaiting = false;
       }
     }
 
-    if (hopDropStage == 3){
+    if (hopDropStage == 1){
       valveHopperOffline = false;
       if (hopDropIntermittentWaiting == false){
         hopDropStageTime = currentTime;
@@ -749,13 +786,13 @@ void hopperControl(unsigned long currentTime){
         Serial.println("hopper control process: hopper closed");
       }
 
-      if (currentTime - hopDropStageTime > interval_FiveSeconds){
-        hopDropStage = 4;
+      if (currentTime - hopDropStageTime > interval_TenSeconds){
+        hopDropStage = 2;
         hopDropIntermittentWaiting = false;
       }
     }
 
-    if (hopDropStage == 4){
+    if (hopDropStage == 2){
       hopSolenoidOut = true;
       if (hopDropIntermittentWaiting == false){
         hopDropStageTime = currentTime;
@@ -764,12 +801,12 @@ void hopperControl(unsigned long currentTime){
       }
 
       if (currentTime - hopDropStageTime > interval_TenSeconds){
-        hopDropStage = 5;
+        hopDropStage = 3;
         hopDropIntermittentWaiting = false;
       }
     }
 
-    if (hopDropStage == 5){
+    if (hopDropStage == 3){
       hopSolenoidOut = false;
       if (hopDropIntermittentWaiting == false){
         hopDropStageTime = currentTime;
@@ -777,7 +814,7 @@ void hopperControl(unsigned long currentTime){
       }
       
 
-      if (currentTime - hopDropStageTime > interval_FiveSeconds){
+      if (currentTime - hopDropStageTime > interval_TenSeconds){
         hopDropStage = 0;
         hopDropIntermittentWaiting = false;
         hopperOpenInProgress = false;
@@ -831,6 +868,8 @@ void timeLeftCheck(unsigned long currentTime){
     } else {
       timeLeft = 0;
     }
+  } else {
+    timeLeft = 0;
   }
 
   Serial.print("time left in milliseconds: ");
@@ -1158,4 +1197,12 @@ void onHopDropTimeChange()  {
 */
 void onAutoHopDropChange()  {
   // Add your code here to act upon AutoHopDrop change
+}
+
+/*
+  Since HopperCO2Purge is READ_WRITE variable, onHopperCO2PurgeChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onHopperCO2PurgeChange()  {
+  // Add your code here to act upon HopperCO2Purge change
 }
