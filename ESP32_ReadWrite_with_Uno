@@ -46,6 +46,18 @@
 //Includes
 #include "thingProperties.h"
 
+
+
+//Density Sensor
+#include "HX711.h"
+#define calibration_factor -6900.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
+#define DOUT  RX
+#define CLK  40
+
+HX711 scale;
+
+
+
 //Function Prototypes
 void surpassedMax(float maxAllowedValue, float value);
 void readPressure();
@@ -105,6 +117,8 @@ int hopSolenoidInPin = 33;
 int PH_PIN = 5;
 //CHILLER_PIN = 7
 //PUMP_PIN = 8
+//CLCK 40
+//DOUT RX
 
 //Solenoid Check Times
 unsigned long prevTime_BaseSolenoidOutClose = millis();
@@ -199,7 +213,7 @@ unsigned long temperatureControlErrorTime;
 
 void setup() {
   // Initialize serial with computer and wait for port to open
-  Serial.begin(19200);
+  Serial.begin(9600);
 
   // Defined in thingProperties.h
   initProperties();
@@ -223,6 +237,10 @@ void setup() {
   pinMode(baseSolenoidInPin, OUTPUT);
   pinMode(hopSolenoidOutPin, OUTPUT);
   pinMode(hopSolenoidInPin, OUTPUT);
+
+  //Density Densor
+  scale.begin(DOUT, CLK);
+  scale.set_scale(calibration_factor); //This value is obtained by using the SparkFun_HX711_Calibration sketch
 }
 
 
@@ -316,9 +334,19 @@ void loop() {
     readPressure();
   }
 
+  //pH Readings
   if (processPause == false & valveOpen == false){
     readPh();
   }
+
+
+
+  //Density Readings
+  if (processPause == false & valveOpen == false){
+    //readingDensity = scale.get_units();
+  }
+
+
 
   //check time left
   timeLeftCheck(currentTime);
