@@ -238,7 +238,7 @@ void setup() {
   pinMode(hopSolenoidOutPin, OUTPUT);
   pinMode(hopSolenoidInPin, OUTPUT);
   pinMode(PUMP_PIN, OUTPUT);
-  pimMode(CHILLER_PIN, OUTPUT);
+  pinMode(CHILLER_PIN, OUTPUT);
 
   //Density Densor
   scale.begin(DOUT, CLK);
