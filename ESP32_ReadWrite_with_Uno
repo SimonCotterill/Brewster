@@ -49,10 +49,12 @@
 
 
 //Density Sensor
+#include <Arduino.h>
+#include "soc/rtc.h"
 #include "HX711.h"
 #define calibration_factor -6900.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
-#define DOUT  RX
-#define CLK  40
+const int LOADCELL_DOUT_PIN = 18;
+const int LOADCELL_SCK_PIN = 40;
 
 HX711 scale;
 
@@ -118,7 +120,7 @@ int PH_PIN = 5;
 //CHILLER_PIN = 7
 //PUMP_PIN = 8
 //CLCK 40
-//DOUT RX
+//DOUT 18
 
 //Solenoid Check Times
 unsigned long prevTime_BaseSolenoidOutClose = millis();
@@ -240,9 +242,13 @@ void setup() {
   pinMode(PUMP_PIN, OUTPUT);
   pinMode(CHILLER_PIN, OUTPUT);
 
-  //Density Densor
-  scale.begin(DOUT, CLK);
-  scale.set_scale(calibration_factor); //This value is obtained by using the SparkFun_HX711_Calibration sketch
+  //Density Sensor
+  rtc_cpu_freq_config_t config;
+  rtc_clk_cpu_freq_get_config(&config);
+  //rtc_clk_cpu_freq_to_config(RTC_CPU_FREQ_80M, &config);
+  rtc_clk_cpu_freq_set_config_fast(&config);
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  scale.set_scale(calibration_factor);  
 }
 
 
@@ -345,7 +351,14 @@ void loop() {
 
   //Density Readings
   if (processPause == false & valveOpen == false){
-    //readingDensity = scale.get_units();
+    if (scale.is_ready()) {  
+      long reading = scale.get_units(10);
+      Serial.print("Result: ");
+      Serial.println(reading);
+      readingDensity = reading;
+    } else {
+      Serial.println("HX711 not found.");
+    }
   }
 
 
