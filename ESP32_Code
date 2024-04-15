@@ -43,22 +43,9 @@
   which are called when their values are changed from the Dashboard.
   These functions are generated with the Thing and added at the end of this sketch.
 */
-//Includes
+
+//General Includes
 #include "thingProperties.h"
-
-
-
-//Density Sensor
-#include <Arduino.h>
-#include "soc/rtc.h"
-#include "HX711.h"
-#define calibration_factor -6900.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
-const int LOADCELL_DOUT_PIN = 18;
-const int LOADCELL_SCK_PIN = 40;
-
-HX711 scale;
-
-
 
 //Function Prototypes
 void surpassedMax(float maxAllowedValue, float value);
@@ -80,6 +67,16 @@ void autoHopDropControl(unsigned long currentTime);
 void timeLeftCheck(unsigned long currentTime);
 void diacetylEndOfFermentation(unsigned long currentTime);
 void readPh();
+
+
+//Density Sensor
+#include <Arduino.h>
+#include "soc/rtc.h"
+#include "HX711.h"
+#define calibration_factor -6900.0 //This value is obtained using the SparkFun_HX711_Calibration sketch
+const int LOADCELL_DOUT_PIN = 18;
+const int LOADCELL_SCK_PIN = 40;
+HX711 scale;
 
 
 //Temperature Probe items, from
@@ -122,6 +119,7 @@ int PH_PIN = 5;
 //CLCK 40
 //DOUT 18
 
+
 //Solenoid Check Times
 unsigned long prevTime_BaseSolenoidOutClose = millis();
 unsigned long prevTime_BaseSolenoidOutOpen = millis();
@@ -144,11 +142,13 @@ int interval_FifteenSeconds = 15000;
 int interval_TenSeconds = 10000;
 int interval_TwentySeconds = 20000;
 
+
 //Cold Crash and Diacetyl Timing bools (if they are finished and when the timer should start)
 bool coldCrashReady = false;
 bool diacetylReady = false;
 bool changedToDiacetyl = false;
 bool changedToColdCrash = false;
+
 
 //Hopper Purge
 bool hopperCO2PurgeInProgress = false;
@@ -175,6 +175,7 @@ bool baseSolenoidIn = false;
 bool hopSolenoidOut = false;
 bool hopSolenoidIn = false;
 
+
 //values for end of fermentation diacetyl mode
 int densitySlopeCount = 0;
 int slopeSigns[100];
@@ -183,7 +184,6 @@ float densitySlopeSign;
 float lastDensity;
 bool atLeast100Densities = false;
 bool diacetylFermentationFinished = false;
-
 
 
 //Temperature Control Constants
@@ -209,8 +209,6 @@ const int CHILLER_PIN = 7;
 const int PUMP_PIN = 8;
 
 unsigned long temperatureControlErrorTime;
-
-
 
 
 void setup() {
@@ -297,7 +295,7 @@ void loop() {
   //Check the stage
   checkStage();
 
-  //Controlling Hop Solenoids and checking if open          NOT DONE
+  //Controlling Hop Solenoids and checking if open
   autoHopDropControl(currentTime);
   hopperControl(currentTime);
   hopperCO2PurgeControl(currentTime);
@@ -347,8 +345,6 @@ void loop() {
     readPh();
   }
 
-
-
   //Density Readings
   if (processPause == false & valveOpen == false){
     if (scale.is_ready()) {  
@@ -360,8 +356,6 @@ void loop() {
       Serial.println("HX711 not found.");
     }
   }
-
-
 
   //check time left
   timeLeftCheck(currentTime);
@@ -377,8 +371,6 @@ void loop() {
 
   Serial.println("");
 
-
-
   //Temperature Control
   current_chiller_Millis = millis();  // Get the current time
   current_pump_Millis = millis();
@@ -387,7 +379,6 @@ void loop() {
 
   temperatureControlErrorPrintings(currentTime); 
 }
-
 
 
 //Temperature Control Functions
@@ -410,6 +401,7 @@ void controlChillerSystem(void){
   }
 }
 
+
 //function to cycle the compressor and fan, 20 mins ON, 7 mins OFF (better for compressor to not be on cts for a long period of time)
 void chiller_cycle() {
   if (justTurnedOn == true){
@@ -427,6 +419,7 @@ void chiller_cycle() {
     }
   }
 }
+
 
 // pump Proportional control function
 float pump_cycle_length(void){
@@ -477,7 +470,6 @@ void turn_chiller_off() {
 }
 
 
-
 void temperatureControlErrorPrintings(unsigned long currentTime){
   if (currentTime - temperatureControlErrorTime > interval_FiveSeconds){
     Serial.println("temperature control things: ");
@@ -501,11 +493,7 @@ void temperatureControlErrorPrintings(unsigned long currentTime){
 }
 
 
-
-
-
 //Checks if any max allowed values were passed
-  //MIGHT NOT NEED IN THE END
 void surpassedMax(float maxAllowedValue, float value){
   if (value > maxAllowedValue){
     if (value == readingPressure){
@@ -552,7 +540,6 @@ bool valveControl(bool openOrClosed, int valvePin){
 
 
 /*
-//MIGHT NOT NEED IN THE END
 //Meant to notify user if the system is broken, with unreasonable temperature or pressure
 void systemStatusChecker(){
   if(surpassedMaxPres == true || surpassedMaxTemp == true){
@@ -568,6 +555,7 @@ void systemStatusChecker(){
   }
 }
 */
+
 
 //Check the current stage
 void checkStage(){
@@ -656,6 +644,7 @@ void checkStage(){
   }
 }
 
+
 //Set Diacetyl Stage Timer
 void setDiacetylStageTimer(unsigned long currentTime){
   if (processStage == "diacetyl" & changedToDiacetyl == false){
@@ -668,6 +657,7 @@ void setDiacetylStageTimer(unsigned long currentTime){
   }
 }
 
+
 //Set Cold Crash Stage Timer
 void setColdCrashStageTimer(unsigned long currentTime){
   if (processStage == "coldCrash" & changedToColdCrash == false){
@@ -679,6 +669,7 @@ void setColdCrashStageTimer(unsigned long currentTime){
     changedToColdCrash = false;
   }
 }
+
 
 //baseSolenoidOut check loop
   //Close after a second
@@ -703,6 +694,7 @@ void baseSolenoidOutCheck(unsigned long currentTime, bool threshold){
   }
 }
 
+
 //baseSolenoidIn check loop
   //close after one second
   //check every 10 seconds if gas needs to be let in
@@ -726,6 +718,7 @@ void baseSolenoidInCheck(unsigned long currentTime, bool threshold){
   }
 }
 
+
 //check if upper pressure bound is surpassed
 bool checkUpperSetPresSurpassed(float upperSetPres){
   if (readingPressure > upperSetPres){
@@ -734,6 +727,7 @@ bool checkUpperSetPresSurpassed(float upperSetPres){
   //if not above, it's below or equal and returns false
   return false;
 }
+
 
 //check if lower pressure bound is surpassed
 bool checkLowerSetPresSurpassed(float lowerSetPres){
@@ -744,6 +738,7 @@ bool checkLowerSetPresSurpassed(float lowerSetPres){
   return false;
 }
 
+
 //say cold crash is ready if timer is done
 void coldCrashStageControl(unsigned long currentTime){
   if(currentTime - coldCrashStartTime > interval_ColdCrash){
@@ -751,12 +746,14 @@ void coldCrashStageControl(unsigned long currentTime){
   }
 }
 
+
 //say daicetyl is ready if timer is done
 void diacetylStageControl(unsigned long currentTime){
   if(currentTime - diacetylStartTime > interval_DiacetylRest){
     diacetylReady = true;
   }
 }
+
 
 void hopperCO2PurgeControl(unsigned long currentTime){
   if (hopperCO2Purge == true & hopperCO2PurgeInProgress == false & hopperOpenInProgress == false){
@@ -798,6 +795,7 @@ void hopperCO2PurgeControl(unsigned long currentTime){
     }
   }
 }
+
 
 //hopper control in a series of timed stages
 void hopperControl(unsigned long currentTime){  
@@ -867,6 +865,7 @@ void hopperControl(unsigned long currentTime){
   }
 }
 
+
 //Autohopdrop control
 void autoHopDropControl(unsigned long currentTime){  
   if (autoHopDrop == true & changedToFermentation == false){
@@ -895,6 +894,7 @@ void autoHopDropControl(unsigned long currentTime){
   }
 }
 
+
 //checks the time left for the given timer
 void timeLeftCheck(unsigned long currentTime){  
   if (processStage == "diacetyl"){
@@ -918,6 +918,7 @@ void timeLeftCheck(unsigned long currentTime){
   Serial.print("time left in milliseconds: ");
   Serial.println(timeLeft);
 }
+
 
 //diacetylEndOfFermentation mode checker
   //finds the slope sign between the current and last value every second
@@ -977,6 +978,7 @@ void diacetylEndOfFermentation(unsigned long currentTime){
     
   }
 }
+
 
 void readPh(){
   float voltage = analogRead(PH_PIN);
